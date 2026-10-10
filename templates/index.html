@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Deadline Catcher</title>
+  </head>
+  <body>
+    <h1>Deadline Catcher</h1>
+
+    <form method="post">
+      <textarea name="letter" rows="10" cols="50"></textarea>
+      <button type="submit">Find deadlines</button>
+    </form>
+
+    {% if message %}<p>{{ message }}</p>{% endif %}
+  </body>
+</html>
