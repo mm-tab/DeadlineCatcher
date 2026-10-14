@@ -120,13 +120,60 @@ def classify_date(sentence, start):
     return "ignore"
 
 def find_absolute_deadlines(text):
-    """Return [{"date": ..., "sentence": ...}] for dates that are deadlines."""
     findings = []
     for sentence in split_sentences(text):
         for (start, end, d) in find_date_matches(sentence):
             if classify_date(sentence, start) == "deadline":
                 findings.append({"date": d, "sentence": sentence.strip()})
     return findings
+
+NUMBER_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
+    "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
+    "nineteen": 19, "twenty": 20, "thirty": 30, "forty": 40,
+    "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+}
+
+
+def words_to_int(text):
+    text = text.strip().lower()
+    if text.isdigit():
+        return int(text)
+    return sum(NUMBER_WORDS[part] for part in re.split(r"[-\s]+", text))
+
+def _alternatives(words):
+    return "|".join(sorted(words, key=len, reverse=True))
+
+
+_units = [w for w, n in NUMBER_WORDS.items() if n < 10]
+_tens = [w for w, n in NUMBER_WORDS.items() if n >= 20]
+_small = [w for w, n in NUMBER_WORDS.items() if n < 20]
+
+_NUM = (
+    rf"(?:\d{{1,3}}"
+    rf"|(?:{_alternatives(_tens)})(?:[-\s](?:{_alternatives(_units)}))?"
+    rf"|{_alternatives(_small)})"
+)
+_PAREN = r"(?:\s*\((\d{1,3})\))?"                 
+_KIND = r"(business\s+|working\s+|calendar\s+)?"
+RELATIVE_WITHIN = rf"\b(?:within|in)\s+({_NUM}){_PAREN}\s+{_KIND}days?\b"
+RELATIVE_HAVE = rf"\bhave\s+({_NUM}){_PAREN}\s+{_KIND}days\s+to\b"
+
+def find_relative(sentence):
+    found = {}  
+    for pattern in (RELATIVE_WITHIN, RELATIVE_HAVE):
+        for match in re.finditer(pattern, sentence, re.IGNORECASE):
+            if match.group(2):               
+                days = int(match.group(2))
+            else:
+                days = words_to_int(match.group(1))
+            kind = (match.group(3) or "").strip().lower()
+            is_business = kind in ("business", "working")
+            found[match.start()] = (days, match.group(0), is_business)
+    return [found[start] for start in sorted(found)]
+
     
 
 
