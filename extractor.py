@@ -205,13 +205,14 @@ def sentences_of(text):
             sentences.extend(split_sentences(line))
     return sentences
 
-def analyze(text, notice_date=None, today=None):
+def analyze(text, notice_date=None, received_date=None, today=None):
     """Return a list of Finding objects, soonest deadline first."""
+    today = today or date.today()
     notice = notice_date or find_notice_date(text)
     findings = []
     for sentence in sentences_of(text):
         evidence = sentence.strip()
-        
+
         for (start, end, d) in find_date_matches(sentence):
             if classify_date(sentence, start) == "deadline":
                 findings.append(Finding(
@@ -220,16 +221,63 @@ def analyze(text, notice_date=None, today=None):
                 ))
 
         for (days, matched, is_business) in find_relative(sentence):
+            anchor, is_clear = detect_anchor(sentence)
+            if anchor == "received":
+                base, missing = received_date, "received_date"
+            else:
+                base, missing = notice, "notice_date"
+
             finding = Finding(kind="relative", label="deadline",
                               evidence=evidence, matched=matched)
-            if notice is None:
-                finding.needs = "notice_date"       # never guess a date
+            if base is None:
+                finding.needs = missing             
+            elif is_business:
+                finding.deadline = add_business_days(base, days)
             else:
-                finding.deadline = notice + timedelta(days=days)
+                finding.deadline = base + timedelta(days=days)
+
+            if is_business:
+                finding.notes.append("weekdays_only")
+            if not is_clear:
+                finding.notes.append("anchor_unclear")
             findings.append(finding)
+
+    for f in findings:
+        if f.deadline is not None and f.deadline < today:
+            f.notes.append("past")
 
     findings.sort(key=lambda f: (f.deadline is None, f.deadline or date.max))
     return findings
+
+def add_business_days(start, n):
+    current = start
+    counted = 0
+    while counted < n:
+        current += timedelta(days=1)          
+        if current.weekday() < 5:             
+            counted += 1
+    return current
+
+RECEIVED_WORDS = re.compile(
+    r"\b(?:of|from|after|upon)\s+(?:your\s+|the\s+date\s+(?:you\s+)?)?"
+    r"(?:receiving|receipt|receive|received)\b",
+    re.IGNORECASE,
+)
+NOTICE_WORDS = re.compile(
+    r"\b(?:date\s+of\s+(?:this|the)\s+(?:notice|letter)"
+    r"|date\s+(?:this\s+)?(?:notice|letter)\s+was\s+(?:mailed|sent|issued)"
+    r"|notice\s+date|mailing\s+date|mailed|dated)\b",
+    re.IGNORECASE,
+)
+
+
+def detect_anchor(sentence):
+    """Return (anchor, is_clear): what the clock counts from, and whether the text says so."""
+    if RECEIVED_WORDS.search(sentence):
+        return ("received", True)
+    if NOTICE_WORDS.search(sentence):
+        return ("notice", True)
+    return ("notice", False)       
     
 
 
