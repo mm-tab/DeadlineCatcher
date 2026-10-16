@@ -1,5 +1,16 @@
-import re 
-from datetime import date
+import re
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+
+@dataclass
+class Finding:
+    kind: str                        
+    label: str                      
+    evidence: str                    
+    matched: str                     
+    deadline: date | None = None    
+    needs: str | None = None         
+    notes: list = field(default_factory=list)
 
 MONTHS = {
     "january": 1,
@@ -174,6 +185,51 @@ def find_relative(sentence):
             found[match.start()] = (days, match.group(0), is_business)
     return [found[start] for start in sorted(found)]
 
+NOTICE_LABEL = re.compile(
+    r"\b(date of (this )?notice|notice date|date mailed|mailed( on)?|dated)\s*:?\s*$",
+    re.IGNORECASE,
+)
+
+
+def find_notice_date(text):
+    for (start, end, d) in find_date_matches(text):
+        window = text[max(0, start - 40):start]
+        if NOTICE_LABEL.search(window):
+            return d
+    return None
+
+def sentences_of(text):
+    sentences = []
+    for line in text.splitlines():
+        if line.strip():
+            sentences.extend(split_sentences(line))
+    return sentences
+
+def analyze(text, notice_date=None, today=None):
+    """Return a list of Finding objects, soonest deadline first."""
+    notice = notice_date or find_notice_date(text)
+    findings = []
+    for sentence in sentences_of(text):
+        evidence = sentence.strip()
+        
+        for (start, end, d) in find_date_matches(sentence):
+            if classify_date(sentence, start) == "deadline":
+                findings.append(Finding(
+                    kind="absolute", label="deadline", evidence=evidence,
+                    matched=sentence[start:end], deadline=d,
+                ))
+
+        for (days, matched, is_business) in find_relative(sentence):
+            finding = Finding(kind="relative", label="deadline",
+                              evidence=evidence, matched=matched)
+            if notice is None:
+                finding.needs = "notice_date"       # never guess a date
+            else:
+                finding.deadline = notice + timedelta(days=days)
+            findings.append(finding)
+
+    findings.sort(key=lambda f: (f.deadline is None, f.deadline or date.max))
+    return findings
     
 
 
