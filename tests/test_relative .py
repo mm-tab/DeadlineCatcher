@@ -28,3 +28,6 @@ def test_phone_number_is_not_a_deadline():
 def test_matched_text_is_in_the_sentence():
     s = "Reply within 10 days."
     assert all(m in s for _, m, _ in find_relative(s))
+
+def test_have_n_days_from():
+    assert days_and_flags("You have 90 days from the date of this notice to ask for a hearing.") == [(90, False)]

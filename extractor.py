@@ -170,7 +170,7 @@ _NUM = (
 _PAREN = r"(?:\s*\((\d{1,3})\))?"                 
 _KIND = r"(business\s+|working\s+|calendar\s+)?"
 RELATIVE_WITHIN = rf"\b(?:within|in)\s+({_NUM}){_PAREN}\s+{_KIND}days?\b"
-RELATIVE_HAVE = rf"\bhave\s+({_NUM}){_PAREN}\s+{_KIND}days\s+to\b"
+RELATIVE_HAVE = rf"\bhave\s+({_NUM}){_PAREN}\s+{_KIND}days\s+(?:to|from)\b"
 
 def find_relative(sentence):
     found = {}  
