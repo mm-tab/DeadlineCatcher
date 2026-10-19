@@ -1,17 +1,36 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Deadline Catcher</title>
-  </head>
-  <body>
-    <h1>Deadline Catcher</h1>
+{% extends "base.html" %}
+{% block content %}
+<h1 class="h3">Find the deadlines in your letter</h1>
+<p class="text-muted">
+  Paste the text of a letter about benefits or services. We show every deadline we
+  find, and the sentence it came from, so you can check it yourself.
+</p>
 
-    <form method="post">
-      <textarea name="letter" rows="10" cols="50"></textarea>
-      <button type="submit">Find deadlines</button>
-    </form>
+{% if error %}
+<div class="alert alert-warning" role="alert">{{ error }}</div>
+{% endif %}
 
-    {% if message %}<p>{{ message }}</p>{% endif %}
-  </body>
-</html>
+<form action="/analyze" method="post">
+  <div class="mb-3">
+    <label for="letter" class="form-label">Letter text</label>
+    <textarea class="form-control" id="letter" name="letter" rows="10" required></textarea>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-sm-6">
+      <label for="notice_date" class="form-label">Date on the letter (optional)</label>
+      <input type="date" class="form-control" id="notice_date" name="notice_date">
+    </div>
+    <div class="col-sm-6">
+      <label for="received_date" class="form-label">Date you received it (optional)</label>
+      <input type="date" class="form-control" id="received_date" name="received_date">
+    </div>
+  </div>
+
+  <p class="small text-muted">
+    Remove names and case numbers first. Nothing is saved. This app only finds dates in
+    the text; it never decides if you qualify for anything.
+  </p>
+  <button type="submit" class="btn btn-primary">Find deadlines</button>
+</form>
+{% endblock %}

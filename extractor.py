@@ -278,7 +278,17 @@ def detect_anchor(sentence):
     if NOTICE_WORDS.search(sentence):
         return ("notice", True)
     return ("notice", False)       
-    
+
+def pick_label(sentence):
+    """Return "appeal", "pay", "respond" or "deadline". The order of the checks matters."""
+    s = sentence.lower()
+    if "appeal" in s or "hearing" in s:
+        return "appeal"
+    if re.search(r"\bpay(ment|ments)?\b", s):
+        return "pay"
+    if re.search(r"\b(respond|return|submit|send)\b", s):
+        return "respond"
+    return "deadline"
 
 
 
