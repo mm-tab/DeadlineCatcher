@@ -1,7 +1,8 @@
 from datetime import date
 
-from flask import Flask, render_template, request
+from flask import Flask, Response, render_template, request
 
+from calendar_ics import make_ics
 from extractor import analyze
 
 app = Flask(__name__)
@@ -39,6 +40,7 @@ def home():
 
 
 @app.route("/analyze", methods=["POST"])
+
 def analyze_letter():
     letter = request.form.get("letter", "").strip()
     if not letter:
@@ -61,4 +63,29 @@ def analyze_letter():
         needs={f.needs for f in findings if f.needs},
         notice_date=notice_date.isoformat() if notice_date else "",
         received_date=received_date.isoformat() if received_date else "",
+    )
+
+ALLOWED_LABELS = {"respond", "appeal", "pay", "deadline"}
+
+
+@app.route("/calendar", methods=["POST"])
+def calendar_file():
+    items = []
+    for pick in request.form.getlist("pick"):
+        try:
+            iso_date, label = pick.split("|", 1)
+            due = date.fromisoformat(iso_date)
+        except ValueError:
+            return "Bad request.", 400
+        if label not in ALLOWED_LABELS:
+            return "Bad request.", 400
+        items.append((due, label))
+
+    if not items:
+        return "Select at least one deadline.", 400
+
+    return Response(
+        make_ics(items),
+        mimetype="text/calendar",
+        headers={"Content-Disposition": "attachment; filename=deadlines.ics"},
     )

@@ -1,5 +1,4 @@
-from extractor import classify_date
-s = "This notice was prepared by staff on September 3, 2026."
-print(classify_date(s, s.index("September")))
-s = "Return it by September 3, 2026."
-print(classify_date(s, s.index("September")))
+from datetime import date
+from calendar_ics import make_ics, escape_text
+print(make_ics([(date(2026, 11, 15), "respond")], today=date(2026, 10, 9)).replace("\r\n", "\n"))
+print(escape_text("Respond, appeal; pay"))
