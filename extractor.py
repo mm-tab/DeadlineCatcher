@@ -55,46 +55,78 @@ def make_date(year, month, day):
     try:
         return date(year, month, day)
     except ValueError:
-        return None
-def find_date_matches(text):
+        return None# A month and day with NO year, like "March 3". Only used when we know a reference date.
+PATTERN_YEARLESS = rf"\b{_month}{_dot}{_space}{_day}{_ordinal}\b"
+
+
+def resolve_year(month, day, ref):
+    """The first date on or after ref that falls on this month and day.
+    resolve_year(3, 3, date(2026, 10, 1)) -> date(2027, 3, 3)"""
+    for year in range(ref.year, ref.year + 9):     # 9 years is enough to find a Feb 29
+        d = make_date(year, month, day)
+        if d is not None and d >= ref:
+            return d
+    return None
+
+
+def find_date_details(text, ref=None):
+    """Return a sorted list of (start, end, date, notes).
+    ref is the date used to guess a missing year. Without it, yearless dates are skipped."""
     results = []
 
+    # ISO: 2026-12-01
     for match in re.finditer(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b", text):
-        year = int(match.group(1))
-        month = int(match.group(2))
-        day = int(match.group(3))
-        d = make_date(year, month, day)
+        d = make_date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
         if d is not None:
-            results.append((match.start(), match.end(), d))
+            results.append((match.start(), match.end(), d, []))
 
+    # Numeric with slashes: 11/20/2026, 25/12/2026, 11/12/2026
     for match in re.finditer(r"\b(\d{1,2})/(\d{1,2})/(\d{4}|\d{2})\b", text):
-        month = int(match.group(1))
-        day = int(match.group(2))
+        first = int(match.group(1))
+        second = int(match.group(2))
         year = int(match.group(3))
         if year < 100:
             year += 2000
+        notes = []
+        if first > 12:                     # 25/12/2026 can only be day/month
+            day, month = first, second
+        else:                              # 11/20/2026 is month/day
+            month, day = first, second
+            if second <= 12 and first != second:
+                notes.append("ambiguous_date")   # 11/12 could be either
         d = make_date(year, month, day)
         if d is not None:
-            results.append((match.start(), match.end(), d))
+            results.append((match.start(), match.end(), d, notes))
 
+    # Month first: November 15, 2026
     for match in re.finditer(PATTERN_A, text, re.IGNORECASE):
-        month = MONTHS[match.group(1).lower()]
-        day = int(match.group(2))
-        year = int(match.group(3))
-        d = make_date(year, month, day)
+        d = make_date(int(match.group(3)), MONTHS[match.group(1).lower()], int(match.group(2)))
         if d is not None:
-            results.append((match.start(), match.end(), d))
+            results.append((match.start(), match.end(), d, []))
 
+    # Day first: 15 November 2026
     for match in re.finditer(PATTERN_B, text, re.IGNORECASE):
-        day = int(match.group(1))
-        month = MONTHS[match.group(2).lower()]
-        year = int(match.group(3))
-        d = make_date(year, month, day)
+        d = make_date(int(match.group(3)), MONTHS[match.group(2).lower()], int(match.group(1)))
         if d is not None:
-            results.append((match.start(), match.end(), d))
+            results.append((match.start(), match.end(), d, []))
 
-    results.sort()
+    # Month and day without a year: March 3
+    if ref is not None:
+        for match in re.finditer(PATTERN_YEARLESS, text, re.IGNORECASE):
+            inside_another = any(s <= match.start() < e for (s, e, _, _) in results)
+            if inside_another:             # this is the first half of "March 3, 2027"
+                continue
+            d = resolve_year(MONTHS[match.group(1).lower()], int(match.group(2)), ref)
+            if d is not None:
+                results.append((match.start(), match.end(), d, ["year_assumed"]))
+
+    results.sort(key=lambda r: r[0])
     return results
+
+
+def find_date_matches(text):
+    """The old function from Day 4, kept so the older code and tests still work."""
+    return [(start, end, d) for (start, end, d, _notes) in find_date_details(text)]
 
 
 def find_dates(text):
@@ -200,24 +232,24 @@ def find_notice_date(text):
 
 def sentences_of(text):
     sentences = []
-    for line in text.splitlines():
-        if line.strip():
-            sentences.extend(split_sentences(line))
+    for paragraph in join_wrapped_lines(text):
+        sentences.extend(split_sentences(paragraph))
     return sentences
 
 def analyze(text, notice_date=None, received_date=None, today=None):
     """Return a list of Finding objects, soonest deadline first."""
     today = today or date.today()
     notice = notice_date or find_notice_date(text)
+    ref = notice or today          # used to guess a missing year
     findings = []
     for sentence in sentences_of(text):
         evidence = sentence.strip()
 
-        for (start, end, d) in find_date_matches(sentence):
+        for (start, end, d, notes) in find_date_details(sentence, ref):
             if classify_date(sentence, start) == "deadline":
                 findings.append(Finding(
-                    kind="absolute", label="deadline", evidence=evidence,
-                    matched=sentence[start:end], deadline=d,
+                    kind="absolute", label=pick_label(sentence), evidence=evidence,
+                    matched=sentence[start:end], deadline=d, notes=list(notes),
                 ))
 
         for (days, matched, is_business) in find_relative(sentence):
@@ -227,10 +259,10 @@ def analyze(text, notice_date=None, received_date=None, today=None):
             else:
                 base, missing = notice, "notice_date"
 
-            finding = Finding(kind="relative", label="deadline",
+            finding = Finding(kind="relative", label=pick_label(sentence),
                               evidence=evidence, matched=matched)
             if base is None:
-                finding.needs = missing             
+                finding.needs = missing
             elif is_business:
                 finding.deadline = add_business_days(base, days)
             else:
@@ -290,6 +322,36 @@ def pick_label(sentence):
         return "respond"
     return "deadline"
 
+FIELD_LINE = re.compile(r"^[A-Z][\w#]*(?: [\w#]+){0,3}:\s+[A-Z0-9].{0,40}$")
+
+
+def _line_is_complete(line):
+    """True if nothing should be glued onto the end of this line."""
+    return (
+        line.endswith((".", "!", "?", ":"))     # a finished sentence or "Dear Mr. Lee:"
+        or line.isupper()                       # a heading like "NOTICE OF ACTION"
+        or FIELD_LINE.match(line) is not None   # a form field
+    )
+
+
+def join_wrapped_lines(text):
+    """Glue wrapped lines back into whole paragraphs. Returns a list of strings."""
+    paragraphs = []
+    current = ""
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:                         # a blank line always ends a paragraph
+            if current:
+                paragraphs.append(current)
+                current = ""
+            continue
+        current = (current + " " + line) if current else line
+        if _line_is_complete(line):
+            paragraphs.append(current)
+            current = ""
+    if current:
+        paragraphs.append(current)
+    return paragraphs
 
 
         

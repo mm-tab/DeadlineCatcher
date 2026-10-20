@@ -89,3 +89,28 @@ def calendar_file():
         mimetype="text/calendar",
         headers={"Content-Disposition": "attachment; filename=deadlines.ics"},
     )
+
+# Allow big form posts (up to 2 MB) so we can cut the letter down to size ourselves.
+# Without this, Flask rejects anything over about 500 KB with a 413 error.
+app.config["MAX_FORM_MEMORY_SIZE"] = 2_000_000
+app.config["MAX_CONTENT_LENGTH"] = 2_000_000
+
+
+NOTE_TEXT = {
+    "weekdays_only": "Counted weekdays only. Holidays are not excluded, so the real date may be later.",
+    "anchor_unclear": "The letter does not say what the days count from. We counted from the letter date.",
+    "past": "This date has already passed.",
+    "year_assumed": "The letter did not give a year, so we used the next time this date comes up.",
+    "ambiguous_date": "This date could be month/day or day/month. We read it as month/day.",
+}
+
+
+@app.template_filter("note_text")
+def note_text(code):
+    """Turn a short note code like 'past' into a sentence a person can read."""
+    return NOTE_TEXT.get(code, code)
+
+
+@app.errorhandler(404)
+def page_not_found(error):
+    return render_template("404.html"), 404

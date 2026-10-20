@@ -32,7 +32,6 @@ def test_sorted_by_date():
     got = [f.deadline for f in analyze(text, today=TODAY)]
     assert got == [date(2026, 11, 15), date(2026, 10, 1) + timedelta(days=60)]
 
-@pytest.mark.xfail(reason="needs join_wrapped_lines on Day 11")
 def test_line_break_in_the_middle_of_a_sentence():
     text = "Date of Notice: October 1, 2026\nYou must respond within\n30 days of the date of this notice."
     assert analyze(text, today=TODAY)[0].deadline == date(2026, 10, 1) + timedelta(days=30)
