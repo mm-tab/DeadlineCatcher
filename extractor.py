@@ -36,7 +36,20 @@ MONTHS = {
     "sep": 9,
     "oct": 10,
     "nov": 11,
-    "dec": 12
+    "dec": 12,
+    "enero": 1,
+    "febrero": 2,
+    "marzo": 3,
+    "abril": 4,
+    "mayo": 5,
+    "junio": 6,
+    "julio": 7,
+    "agosto": 8,
+    "septiembre": 9,
+    "setiembre": 9,
+    "octubre": 10,
+    "noviembre": 11,
+    "diciembre": 12,
 }
 
 months_names = sorted(MONTHS, key=len, reverse=True)
@@ -51,6 +64,7 @@ _year    = r"(\d{4})"
 
 PATTERN_A = rf"\b{_month}{_dot}{_space}{_day}{_ordinal}{_sep}{_year}\b"
 PATTERN_B = rf"\b{_day}{_space}{_month}{_dot}{_sep}{_year}\b"
+PATTERN_ES = rf"\b{_day}\s+de\s+{_month}\s+de\s+{_year}\b"
 def make_date(year, month, day):
     try:
         return date(year, month, day)
@@ -111,6 +125,10 @@ def find_date_details(text, ref=None):
             results.append((match.start(), match.end(), d, []))
 
     # Month and day without a year: March 3
+    for match in re.finditer(PATTERN_ES, text, re.IGNORECASE):
+        d = make_date(int(match.group(3)), MONTHS[match.group(2).lower()], int(match.group(1)))
+        if d is not None:
+            results.append((match.start(), match.end(), d, []))
     if ref is not None:
         for match in re.finditer(PATTERN_YEARLESS, text, re.IGNORECASE):
             inside_another = any(s <= match.start() < e for (s, e, _, _) in results)
@@ -151,7 +169,8 @@ def split_sentences(text):
     return sentences
 
 CUE_PATTERN = re.compile(
-    r"\b(by|before|no later than|on or before|until|due)\s*:?\s*(the\s+|on\s+)?$",
+    r"\b(by|before|no later than|on or before|until|due"
+    r"|antes del?|a m[aá]s tardar|hasta|fecha l[ií]mite)\s*:?\s*(the\s+|on\s+|el\s+)?$",
     re.IGNORECASE,
 )
 
@@ -203,6 +222,7 @@ _PAREN = r"(?:\s*\((\d{1,3})\))?"
 _KIND = r"(business\s+|working\s+|calendar\s+)?"
 RELATIVE_WITHIN = rf"\b(?:within|in)\s+({_NUM}){_PAREN}\s+{_KIND}days?\b"
 RELATIVE_HAVE = rf"\bhave\s+({_NUM}){_PAREN}\s+{_KIND}days\s+(?:to|from)\b"
+RELATIVE_ES = r"\b(?:dentro\s+de|en|tiene)\s+(\d{1,3})\s+d[ií]as(\s+h[aá]biles)?"
 
 def find_relative(sentence):
     found = {}  
@@ -215,10 +235,13 @@ def find_relative(sentence):
             kind = (match.group(3) or "").strip().lower()
             is_business = kind in ("business", "working")
             found[match.start()] = (days, match.group(0), is_business)
+    for match in re.finditer(RELATIVE_ES, sentence, re.IGNORECASE):
+        found[match.start()] = (int(match.group(1)), match.group(0), bool(match.group(2)))
     return [found[start] for start in sorted(found)]
 
 NOTICE_LABEL = re.compile(
-    r"\b(date of (this )?notice|notice date|date mailed|mailed( on)?|dated)\s*:?\s*$",
+    r"\b(date of (this )?notice|notice date|date mailed|mailed( on)?|dated"
+    r"|fecha del aviso|fecha de la carta)\s*:?\s*$",
     re.IGNORECASE,
 )
 
@@ -292,13 +315,15 @@ def add_business_days(start, n):
 
 RECEIVED_WORDS = re.compile(
     r"\b(?:of|from|after|upon)\s+(?:your\s+|the\s+date\s+(?:you\s+)?)?"
-    r"(?:receiving|receipt|receive|received)\b",
+    r"(?:receiving|receipt|receive|received)\b"
+    r"|\ba\s+partir\s+de\s+(?:su\s+)?(?:recibo|recibir)",
     re.IGNORECASE,
 )
 NOTICE_WORDS = re.compile(
     r"\b(?:date\s+of\s+(?:this|the)\s+(?:notice|letter)"
     r"|date\s+(?:this\s+)?(?:notice|letter)\s+was\s+(?:mailed|sent|issued)"
-    r"|notice\s+date|mailing\s+date|mailed|dated)\b",
+    r"|notice\s+date|mailing\s+date|mailed|dated"
+    r"|a\s+partir\s+de\s+la\s+fecha\s+de\s+(?:este|la)\s+(?:aviso|carta))\b",
     re.IGNORECASE,
 )
 
@@ -314,11 +339,11 @@ def detect_anchor(sentence):
 def pick_label(sentence):
     """Return "appeal", "pay", "respond" or "deadline". The order of the checks matters."""
     s = sentence.lower()
-    if "appeal" in s or "hearing" in s:
+    if "appeal" in s or "hearing" in s or "apel" in s or "audiencia" in s:
         return "appeal"
-    if re.search(r"\bpay(ment|ments)?\b", s):
+    if re.search(r"\b(pay(ment|ments)?|pagar|pago)\b", s):
         return "pay"
-    if re.search(r"\b(respond|return|submit|send)\b", s):
+    if re.search(r"\b(respond|return|submit|send|responder|devolver|presente|presentar|enviar)\b", s):
         return "respond"
     return "deadline"
 

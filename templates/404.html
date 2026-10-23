@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="h3">Page not found</h1>
-<p>That page does not exist.</p>
-<a href="/" class="btn btn-primary">Back to Deadline Catcher</a>
+<h1 class="h3">{{ t("notfound_title") }}</h1>
+<p>{{ t("notfound_text") }}</p>
+<a href="/?lang={{ lang }}" class="btn btn-primary">{{ t("back_home") }}</a>
 {% endblock %}

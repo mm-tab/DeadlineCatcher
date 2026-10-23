@@ -1,58 +1,57 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="h3">Deadlines we found</h1>
+<h1 class="h3">{{ t("results_title") }}</h1>
 
 {% if not rows %}
-  <div class="alert alert-info">
-    No deadlines found. The letter may use wording we do not recognize, so please
-    read it yourself too.
-  </div>
+  <div class="alert alert-info">{{ t("none_found") }}</div>
 {% endif %}
 
 {% if needs %}
   <div class="alert alert-warning">
-    Some deadlines count from a date we could not find. Enter it below and press Recalculate.
+    {{ t("need_date_help") }}
     <form action="/analyze" method="post" class="row g-2 mt-2">
+      <input type="hidden" name="lang" value="{{ lang }}">
       <textarea name="letter" hidden>{{ letter }}</textarea>
       <div class="col-sm-5">
-        <label for="notice_date" class="form-label">Date on the letter</label>
+        <label for="notice_date" class="form-label">{{ t("notice_short") }}</label>
         <input type="date" class="form-control" id="notice_date" name="notice_date" value="{{ notice_date }}">
       </div>
       <div class="col-sm-5">
-        <label for="received_date" class="form-label">Date you received it</label>
+        <label for="received_date" class="form-label">{{ t("received_short") }}</label>
         <input type="date" class="form-control" id="received_date" name="received_date" value="{{ received_date }}">
       </div>
       <div class="col-sm-2 d-flex align-items-end">
-        <button type="submit" class="btn btn-primary w-100">Recalculate</button>
+        <button type="submit" class="btn btn-primary w-100">{{ t("recalculate") }}</button>
       </div>
     </form>
   </div>
 {% endif %}
 
 <form action="/calendar" method="post">
+  <input type="hidden" name="lang" value="{{ lang }}">
   {% for row in rows %}
     {% set f = row.f %}
     <div class="card mb-3">
       <div class="card-body">
-        <span class="badge text-bg-secondary">{{ f.label }}</span>
+        <span class="badge text-bg-secondary">{{ t("label_" ~ f.label) }}</span>
 
         {% if f.deadline %}
-          <h2 class="h5 mt-2">{{ f.deadline|nice_date }}</h2>
+          <h2 class="h5 mt-2">{{ nice_date(f.deadline) }}</h2>
         {% else %}
-          <h2 class="h5 mt-2">We need the letter date</h2>
+          <h2 class="h5 mt-2">{{ t("need_letter_date") }}</h2>
         {% endif %}
 
         <p class="mb-2">{{ row.before }}<mark>{{ row.match }}</mark>{{ row.after }}</p>
 
         {% for note in f.notes %}
-          <p class="small text-warning-emphasis mb-1">Note: {{ note|note_text }}</p>
+          <p class="small text-warning-emphasis mb-1">{{ t("note_prefix") }} {{ note_text(note) }}</p>
         {% endfor %}
 
         {% if f.deadline %}
           <div class="form-check">
             <input class="form-check-input" type="checkbox" name="pick" id="pick{{ loop.index }}"
                    value="{{ f.deadline.isoformat() }}|{{ f.label }}" checked>
-            <label class="form-check-label" for="pick{{ loop.index }}">Add to my calendar</label>
+            <label class="form-check-label" for="pick{{ loop.index }}">{{ t("add_to_calendar") }}</label>
           </div>
         {% endif %}
       </div>
@@ -60,8 +59,8 @@
   {% endfor %}
 
   {% if rows|selectattr("f.deadline")|list %}
-    <button type="submit" class="btn btn-success">Download calendar file (.ics)</button>
+    <button type="submit" class="btn btn-success">{{ t("download") }}</button>
   {% endif %}
-  <a href="/" class="btn btn-outline-secondary">Check another letter</a>
+  <a href="/?lang={{ lang }}" class="btn btn-outline-secondary">{{ t("another") }}</a>
 </form>
 {% endblock %}

@@ -4,10 +4,35 @@ from flask import Flask, Response, render_template, request
 
 from calendar_ics import make_ics
 from extractor import analyze
+from translations import STR, format_date, t
 
 app = Flask(__name__)
 
 MAX_LETTER_CHARS = 20000
+
+# Allow big form posts (up to 2 MB) so we can cut the letter down to size ourselves.
+app.config["MAX_FORM_MEMORY_SIZE"] = 2_000_000
+app.config["MAX_CONTENT_LENGTH"] = 2_000_000
+
+ALLOWED_LABELS = {"respond", "appeal", "pay", "deadline"}
+
+
+def get_lang():
+    """'en' or 'es', read from ?lang=es in the link or the hidden lang field in a form."""
+    lang = request.values.get("lang", "en")
+    return lang if lang in STR else "en"
+
+
+@app.context_processor
+def inject_helpers():
+    """Everything returned here can be used in every template."""
+    lang = get_lang()
+    return {
+        "lang": lang,
+        "t": lambda key: t(key, lang),
+        "nice_date": lambda d: format_date(d, lang),
+        "note_text": lambda code: t("note_" + code, lang),
+    }
 
 
 def parse_optional_date(text):
@@ -28,23 +53,16 @@ def split_around(evidence, matched):
     return (evidence[:index], evidence[index:end], evidence[end:])
 
 
-@app.template_filter("nice_date")
-def nice_date(d):
-    """date(2026, 11, 15) -> 'Sunday, November 15, 2026' (no leading zero on the day)"""
-    return f"{d.strftime('%A, %B')} {d.day}, {d.year}"
-
-
 @app.route("/")
 def home():
     return render_template("index.html")
 
 
 @app.route("/analyze", methods=["POST"])
-
 def analyze_letter():
     letter = request.form.get("letter", "").strip()
     if not letter:
-        return render_template("index.html", error="Please paste some letter text first."), 400
+        return render_template("index.html", error=t("error_empty", get_lang())), 400
     letter = letter[:MAX_LETTER_CHARS]
 
     notice_date = parse_optional_date(request.form.get("notice_date"))
@@ -64,8 +82,6 @@ def analyze_letter():
         notice_date=notice_date.isoformat() if notice_date else "",
         received_date=received_date.isoformat() if received_date else "",
     )
-
-ALLOWED_LABELS = {"respond", "appeal", "pay", "deadline"}
 
 
 @app.route("/calendar", methods=["POST"])
@@ -89,26 +105,6 @@ def calendar_file():
         mimetype="text/calendar",
         headers={"Content-Disposition": "attachment; filename=deadlines.ics"},
     )
-
-# Allow big form posts (up to 2 MB) so we can cut the letter down to size ourselves.
-# Without this, Flask rejects anything over about 500 KB with a 413 error.
-app.config["MAX_FORM_MEMORY_SIZE"] = 2_000_000
-app.config["MAX_CONTENT_LENGTH"] = 2_000_000
-
-
-NOTE_TEXT = {
-    "weekdays_only": "Counted weekdays only. Holidays are not excluded, so the real date may be later.",
-    "anchor_unclear": "The letter does not say what the days count from. We counted from the letter date.",
-    "past": "This date has already passed.",
-    "year_assumed": "The letter did not give a year, so we used the next time this date comes up.",
-    "ambiguous_date": "This date could be month/day or day/month. We read it as month/day.",
-}
-
-
-@app.template_filter("note_text")
-def note_text(code):
-    """Turn a short note code like 'past' into a sentence a person can read."""
-    return NOTE_TEXT.get(code, code)
 
 
 @app.errorhandler(404)
