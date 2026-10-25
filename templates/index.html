@@ -1,31 +1,36 @@
 {% extends "base.html" %}
+{% block title %}{{ t("index_title") }} | Deadline Catcher{% endblock %}
 {% block content %}
-<h1 class="h3">{{ t("index_title") }}</h1>
-<p class="text-muted">{{ t("index_intro") }}</p>
-
 {% if error %}
-<div class="alert alert-warning" role="alert">{{ error }}</div>
+<div class="callout callout-error" role="alert">{{ error }}</div>
 {% endif %}
 
-<form action="/analyze" method="post">
-  <input type="hidden" name="lang" value="{{ lang }}">
-  <div class="mb-3">
-    <label for="letter" class="form-label">{{ t("letter_label") }}</label>
-    <textarea class="form-control" id="letter" name="letter" rows="10" required></textarea>
-  </div>
+<div class="split">
+  <section class="intro">
+    <h1>{{ t("index_title") }}</h1>
+    <p class="lede">{{ t("index_intro") }}</p>
+  </section>
 
-  <div class="row g-3 mb-3">
-    <div class="col-sm-6">
-      <label for="notice_date" class="form-label">{{ t("notice_label") }}</label>
-      <input type="date" class="form-control" id="notice_date" name="notice_date">
+  <form class="sheet" action="/analyze" method="post">
+    <input type="hidden" name="lang" value="{{ lang }}">
+    <div class="field">
+      <label for="letter">{{ t("letter_label") }}</label>
+      <textarea id="letter" name="letter" rows="10" required></textarea>
     </div>
-    <div class="col-sm-6">
-      <label for="received_date" class="form-label">{{ t("received_label") }}</label>
-      <input type="date" class="form-control" id="received_date" name="received_date">
-    </div>
-  </div>
 
-  <p class="small text-muted">{{ t("privacy") }}</p>
-  <button type="submit" class="btn btn-primary">{{ t("find_button") }}</button>
-</form>
+    <div class="field-row">
+      <div>
+        <label for="notice_date">{{ t("notice_label") }}</label>
+        <input type="date" id="notice_date" name="notice_date">
+      </div>
+      <div>
+        <label for="received_date">{{ t("received_label") }}</label>
+        <input type="date" id="received_date" name="received_date">
+      </div>
+    </div>
+
+    <p class="fineprint">{{ t("privacy") }}</p>
+    <button type="submit" class="btn btn-primary">{{ t("find_button") }}</button>
+  </form>
+</div>
 {% endblock %}

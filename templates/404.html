@@ -1,6 +1,9 @@
 {% extends "base.html" %}
+{% block title %}{{ t("notfound_title") }} | Deadline Catcher{% endblock %}
 {% block content %}
-<h1 class="h3">{{ t("notfound_title") }}</h1>
-<p>{{ t("notfound_text") }}</p>
-<a href="/?lang={{ lang }}" class="btn btn-primary">{{ t("back_home") }}</a>
+<section class="notfound">
+  <h1>{{ t("notfound_title") }}</h1>
+  <p>{{ t("notfound_text") }}</p>
+  <a href="/?lang={{ lang }}" class="btn btn-primary">{{ t("back_home") }}</a>
+</section>
 {% endblock %}

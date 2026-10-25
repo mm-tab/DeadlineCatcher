@@ -1,66 +1,70 @@
 {% extends "base.html" %}
+{% block title %}{{ t("results_title") }} | Deadline Catcher{% endblock %}
 {% block content %}
-<h1 class="h3">{{ t("results_title") }}</h1>
+<h1 class="results-title">{{ t("results_title") }}</h1>
 
 {% if not rows %}
-  <div class="alert alert-info">{{ t("none_found") }}</div>
+  <div class="callout">{{ t("none_found") }}</div>
 {% endif %}
 
 {% if needs %}
-  <div class="alert alert-warning">
-    {{ t("need_date_help") }}
-    <form action="/analyze" method="post" class="row g-2 mt-2">
+  <div class="callout callout-needs">
+    <p>{{ t("need_date_help") }}</p>
+    <form action="/analyze" method="post">
       <input type="hidden" name="lang" value="{{ lang }}">
       <textarea name="letter" hidden>{{ letter }}</textarea>
-      <div class="col-sm-5">
-        <label for="notice_date" class="form-label">{{ t("notice_short") }}</label>
-        <input type="date" class="form-control" id="notice_date" name="notice_date" value="{{ notice_date }}">
+      <div>
+        <label for="notice_date">{{ t("notice_short") }}</label>
+        <input type="date" id="notice_date" name="notice_date" value="{{ notice_date }}">
       </div>
-      <div class="col-sm-5">
-        <label for="received_date" class="form-label">{{ t("received_short") }}</label>
-        <input type="date" class="form-control" id="received_date" name="received_date" value="{{ received_date }}">
+      <div>
+        <label for="received_date">{{ t("received_short") }}</label>
+        <input type="date" id="received_date" name="received_date" value="{{ received_date }}">
       </div>
-      <div class="col-sm-2 d-flex align-items-end">
-        <button type="submit" class="btn btn-primary w-100">{{ t("recalculate") }}</button>
-      </div>
+      <button type="submit" class="btn btn-primary">{{ t("recalculate") }}</button>
     </form>
   </div>
 {% endif %}
 
 <form action="/calendar" method="post">
   <input type="hidden" name="lang" value="{{ lang }}">
+  <ol class="ledger">
   {% for row in rows %}
     {% set f = row.f %}
-    <div class="card mb-3">
-      <div class="card-body">
-        <span class="badge text-bg-secondary">{{ t("label_" ~ f.label) }}</span>
-
+    <li class="entry{% if 'past' in f.notes %} entry-past{% endif %}">
+      <div class="when">
+        <p class="action">{{ t("label_" ~ f.label) }}</p>
         {% if f.deadline %}
-          <h2 class="h5 mt-2">{{ nice_date(f.deadline) }}</h2>
+          <h2 class="date">{{ nice_date(f.deadline) }}</h2>
         {% else %}
-          <h2 class="h5 mt-2">{{ t("need_letter_date") }}</h2>
+          <h2 class="date date-missing">{{ t("need_letter_date") }}</h2>
         {% endif %}
+      </div>
 
-        <p class="mb-2">{{ row.before }}<mark>{{ row.match }}</mark>{{ row.after }}</p>
+      <div class="why">
+        <p class="evidence">{{ row.before }}<mark>{{ row.match }}</mark>{{ row.after }}</p>
 
         {% for note in f.notes %}
-          <p class="small text-warning-emphasis mb-1">{{ t("note_prefix") }} {{ note_text(note) }}</p>
+          <p class="note note-{{ note }}"><strong>{{ t("note_prefix") }}</strong> {{ note_text(note) }}</p>
         {% endfor %}
 
         {% if f.deadline %}
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="pick" id="pick{{ loop.index }}"
+          <div class="pick">
+            <input type="checkbox" name="pick" id="pick{{ loop.index }}"
                    value="{{ f.deadline.isoformat() }}|{{ f.label }}" checked>
-            <label class="form-check-label" for="pick{{ loop.index }}">{{ t("add_to_calendar") }}</label>
+            <label for="pick{{ loop.index }}">{{ t("add_to_calendar") }}</label>
           </div>
         {% endif %}
       </div>
-    </div>
+    </li>
   {% endfor %}
+  </ol>
 
-  {% if rows|selectattr("f.deadline")|list %}
-    <button type="submit" class="btn btn-success">{{ t("download") }}</button>
-  {% endif %}
-  <a href="/?lang={{ lang }}" class="btn btn-outline-secondary">{{ t("another") }}</a>
+  <div class="actions">
+    {% if rows|selectattr("f.deadline")|list %}
+      <button type="submit" class="btn btn-primary">{{ t("download") }}</button>
+    {% endif %}
+    <a href="/?lang={{ lang }}" class="btn btn-ghost">{{ t("another") }}</a>
+  </div>
 </form>
 {% endblock %}
